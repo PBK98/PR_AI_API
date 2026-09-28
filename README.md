@@ -1,34 +1,87 @@
 # AI Git 메시지 도우미
 
-Git 변경 사항으로 커밋 메시지와 PR 초안을 생성하는 Python CLI 과제입니다.
-현재는 첫 단계인 Git 변경 사항 수집 및 터미널 출력까지 구현했습니다.
-AI API 호출과 `commit` / `pr` 명령은 다음 단계에서 추가합니다.
+Git 변경 사항을 확인하고 교육기관의 OpenAI 호환 API로 한국어 커밋 제목을 생성하는 Python CLI입니다.
+PR 초안 생성은 다음 단계에서 추가합니다.
 
-## 준비 및 실행
+## 준비
 
-Python 3.10 이상과 Git이 필요합니다. 현재 코드는 표준 라이브러리만 사용합니다.
-프로젝트 루트에서 실행하세요.
+Python 3.10 이상과 Git이 필요합니다. 프로젝트 루트에서 실행하세요.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python main.py
+python -m pip install -r requirements.txt
 ```
 
-변경된 파일 목록, 스테이징 전 diff, 스테이징한 diff를 구분해서 출력합니다.
-변경 사항이 없으면 안내 메시지를 출력하고 종료합니다.
-새 미추적 파일은 기본 diff에 포함되지 않으므로 내용을 확인하려면
-`git add 파일명`으로 해당 파일을 스테이징한 후 다시 실행하세요.
-
-## API 키 준비
-
-로컬 `.env` 파일에 사용할 서비스의 키를 입력하세요.
-다른 환경에서는 `.env.example`을 `.env`로 복사해서 사용합니다.
+로컬 `.env`에 교육기관에서 발급받은 API 키를 입력하세요. 새 환경에서는 `.env.example`을
+`.env`로 복사합니다. 기존 `.env`는 덮어쓰지 마세요.
 
 ```dotenv
-AI_API_KEY=발급받은_키
+AI_API_KEY="발급받은 실제 키"
+AI_BASE_URL=https://copa.codyssey.kr/v1
 ```
 
-`.env`는 Git에서 제외됩니다. 키를 코드나 커밋에 넣지 마세요.
-현재 단계에서는 `.env`를 읽거나 API를 호출하지 않습니다.
-API 연동 단계에서 환경변수와 `.env` 로딩을 연결할 예정입니다.
+`.env`는 자동으로 읽으며 이미 설정된 환경변수가 우선합니다.
+키를 코드나 커밋에 넣지 마세요.
+
+## 실행
+
+```bash
+# API 호출 없이 변경 파일 및 스테이징 전후 diff 확인
+python main.py
+
+# 커밋 제목 생성 (실제 커밋은 하지 않음)
+python main.py commit --safe-mode
+
+# API 옵션 조정
+python main.py commit --model gpt-5-mini --max-tokens 2048 --safe-mode
+```
+
+스테이징한 변경이 있으면 그 변경만 사용합니다. 없으면 스테이징 전 변경을 사용합니다.
+새 미추적 파일은 diff에 포함되지 않으므로 `git add 파일명` 후 실행하세요.
+변경이 없거나 미추적 파일만 있으면 API를 호출하지 않습니다.
+
+출력 예시 (생성 문구는 달라질 수 있습니다):
+
+```text
+[INFO] 생성 대상: 스테이징한 변경
+[INFO] AI API 요청 중... (요청 1회, 자동 재시도 없음)
+
+--- Commit Message ---
+chore: 테스트 텍스트 파일 추가
+----------------------
+```
+
+커밋 제목은 50자 이내를 권장하도록 요청하고 최대 72자로 후처리합니다.
+생성된 내용은 사용자가 검토한 뒤 직접 커밋하세요.
+
+## API 옵션과 오류
+
+- 기본 모델: `gpt-5-mini`
+- `--temperature`: 기본 생략(모델 기본값), 범위 0~2. 지원하는 모델에만 지정하세요.
+- `--max-tokens`: 기본 2048, 최소 16. `max_completion_tokens`로 전달하며 추론 토큰도 포함합니다.
+- 다른 모델은 옵션 지원 여부가 다를 수 있습니다. HTTP 400이면 모델과 옵션을 확인하세요.
+- 키 누락, 인증 실패, 권한 부족, 요청 한도/잔액 부족, 연결 실패, 타임아웃을 안내합니다.
+- 실행당 API 요청은 1회이며 자동 재시도하지 않습니다. 실행 시 API 사용 비용이 발생할 수 있습니다.
+
+## 민감정보 및 안전 모드
+
+API에는 선택된 diff를 전송합니다. 사용 중인 API 키와 일반적인 `sk-` 키 패턴은
+항상 마스킹합니다. `--safe-mode`는 diff를 최대 200줄 및 20,000자로 제한합니다.
+이 제한은 모든 개인정보나 비밀을 제거하는 기능이 아니므로 전송할 변경을 먼저 확인하세요.
+제한으로 잘린 경우 일부 변경이 요약에서 누락될 수 있습니다.
+
+## 검증
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+테스트는 가짜 키와 모의 API 응답을 사용하며 네트워크를 호출하지 않습니다.
+
+## 참고
+
+[OpenAI Chat Completions 공식 문서](https://developers.openai.com/api/reference/python/resources/chat/subresources/completions/methods/create)
+
+교육기관 서버의 `/v1/chat/completions`를 사용합니다. `AI_BASE_URL`에는
+`/chat/completions`를 붙이지 마세요. 기본 주소는 `https://copa.codyssey.kr/v1`입니다.
