@@ -14,3 +14,6 @@ ENV/
 Thumbs.db
 .git
 test.md
+.env
+.env.*
+!.env.example
