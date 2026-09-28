@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+#*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+env/
+ENV/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.git
+test.md
