@@ -38,7 +38,7 @@ class PRTests(unittest.TestCase):
         self.assertEqual(format_pr('```json\n' + response() + '\n```'), format_pr(response()))
 
     def test_shared_request_once(self):
-        with patch('app.ai_client.request_text', return_value=response()) as request:
+        with patch('app.ai_client.load_template', return_value=None), patch('app.ai_client.request_text', return_value=response()) as request:
             generate_pr('+hello', 'gpt-5-mini', None, 2048, True)
             request.assert_called_once_with('+hello', 'gpt-5-mini', None, 2048, True, PR_INSTRUCTIONS)
 
