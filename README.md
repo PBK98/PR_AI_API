@@ -1,7 +1,6 @@
 # AI Git 메시지 도우미
 
-Git 변경 사항을 확인하고 교육기관의 OpenAI 호환 API로 한국어 커밋 제목을 생성하는 Python CLI입니다.
-PR 초안 생성은 다음 단계에서 추가합니다.
+Git 변경 사항을 확인하고 교육기관의 OpenAI 호환 API로 한국어 커밋 제목과 PR 초안을 생성하는 Python CLI입니다.
 
 ## 준비
 
@@ -33,6 +32,9 @@ python main.py
 # 커밋 제목 생성 (실제 커밋은 하지 않음)
 python main.py commit --safe-mode
 
+# PR 제목과 본문 생성 (실제 GitHub PR은 만들지 않음)
+python main.py pr --safe-mode
+
 # API 옵션 조정
 python main.py commit --model gpt-5-mini --max-tokens 2048 --safe-mode
 ```
@@ -54,6 +56,34 @@ chore: 테스트 텍스트 파일 추가
 
 커밋 제목은 50자 이내를 권장하도록 요청하고 최대 72자로 후처리합니다.
 생성된 내용은 사용자가 검토한 뒤 직접 커밋하세요.
+
+## PR 초안
+
+`pr`도 스테이징한 변경을 우선 사용하고, 없으면 스테이징 전 변경을 사용합니다.
+이미 커밋한 변경이나 브랜치 전체 이력은 수집하지 않습니다.
+PR에 넣을 변경을 커밋하기 전에 초안을 생성해 복사해 두세요.
+
+```text
+--- PR Title ---
+feat: PR 초안 생성 명령 추가
+
+--- PR Body ---
+## Why
+- 변경 배경 확인 필요
+
+## What
+- Git 변경 내용을 바탕으로 PR 제목과 본문 생성
+
+## How to Test
+- 제안(미실행): python main.py pr --safe-mode 실행 후 출력 형식 확인
+```
+
+API에 JSON 형식의 초안을 요청한 뒤 제목을 한 줄, 최대 80자로 다듬습니다.
+Why/What/How to Test 섹션과 각 섹션의 불릿을 생성하며, 필수 내용 누락이나
+잘못된 JSON은 오류로 안내합니다. 자동으로 추가 API 요청을 보내지 않습니다.
+변경 배경이 불명확하면 확인 필요로 표시하도록 요청하며, 테스트 방법은
+미실행 제안으로 작성하도록 요청합니다. 생성 내용의 사실 여부는 직접 검토하세요.
+초안을 복사해 GitHub에서 PR을 직접 작성합니다.
 
 ## API 옵션과 오류
 
