@@ -5,6 +5,8 @@ import os
 import re
 from pathlib import Path
 
+from .pr_template import load_template, render_template, template_instructions
+
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
@@ -136,6 +138,11 @@ def format_pr(text: str) -> tuple[str, str]:
 
 
 def generate_pr(diff: str, model: str, temperature: float | None, max_tokens: int, safe_mode: bool) -> tuple[str, str]:
+    template = load_template()
+    if template is not None:
+        print("[INFO] .github/pull_request_template.md 양식을 적용합니다.")
+        text = request_text(diff, model, temperature, max_tokens, safe_mode, template_instructions(template))
+        return render_template(text, template)
     text = request_text(diff, model, temperature, max_tokens, safe_mode, PR_INSTRUCTIONS)
     return format_pr(text)
 
