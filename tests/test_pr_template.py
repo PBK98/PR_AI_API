@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from app.ai_client import generate_pr
-from app.pr_template import load_template, render_template, template_slots
+from app.pr_template import load_template, render_template, template_slots, validate_sections
 
 TEMPLATE = Path('.github/pull_request_template.md').read_text()
 
@@ -51,7 +51,14 @@ class TemplateTests(unittest.TestCase):
         request.assert_called_once()
         self.assertIn(TEMPLATE, request.call_args.args[-1])
         self.assertIn('## 📌 PR 개요', body)
-        self.assertNotIn('## Why', body)
+        self.assertIn('## Why', body)
+        self.assertIn('## What', body)
+        self.assertIn('## How to Test', body)
+
+    def test_required_sections_rejected_if_missing(self):
+        for header in ('Why', 'What', 'How to Test'):
+            with self.subTest(header=header), self.assertRaises(RuntimeError):
+                validate_sections(TEMPLATE.replace('## ' + header, '## Other'))
 
     def test_missing_and_empty_template(self):
         with tempfile.TemporaryDirectory() as directory:

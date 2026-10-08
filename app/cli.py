@@ -64,34 +64,6 @@ def confirm_file_commits(messages: dict[str, str], expected_diff: str) -> int:
     return 0
 
 
-def apply_pr(args) -> int:
-    from .github_client import prepare_pr, publish_pr
-
-    try:
-        plan = prepare_pr(args.base)
-        from .ai_client import generate_pr
-        title, body = generate_pr(plan.diff, args.model, args.temperature, args.max_tokens, args.safe_mode)
-        print(f"[INFO] 대상: {plan.repo} ({plan.branch} → {plan.base})")
-        print(f"\n--- PR Title ---\n{title}\n\n--- PR Body ---\n{body}\n----------------------")
-        try:
-            answer = input("이 브랜치를 push하고 위 내용으로 GitHub PR을 만들까요? [y/N] ")
-        except (EOFError, KeyboardInterrupt):
-            print("\n[INFO] PR 생성을 취소했습니다.")
-            return 0
-        if answer.strip().lower() != 'y':
-            print("[INFO] PR 생성을 취소했습니다.")
-            return 0
-        url = publish_pr(plan, title, body)
-    except ImportError:
-        print("[ERROR] python -m pip install -r requirements.txt 를 먼저 실행하세요.", file=sys.stderr)
-        return 1
-    except (OSError, RuntimeError, ValueError) as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
-        return 1
-    print(f"[DONE] PR 생성 완료: {url}")
-    return 0
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Git 변경 확인 및 AI 커밋/PR 초안 생성")
     parser.add_argument("command", nargs="?", choices=["commit", "pr"], help="생략하면 Git 변경만 출력")
@@ -100,15 +72,12 @@ def main() -> int:
     parser.add_argument("--max-tokens", type=int, default=2048)
     parser.add_argument("--safe-mode", action="store_true", help="전송 diff를 최대 200줄/20,000자로 제한")
     parser.add_argument("--per-file", action="store_true", help="commit 메시지를 파일별로 생성")
-    parser.add_argument("--apply", action="store_true", help="확인 후 실제 커밋 또는 GitHub PR 생성")
-    parser.add_argument("--base", help="pr --apply의 기준 브랜치 (기본: GitHub 기본 브랜치)")
+    parser.add_argument("--apply", action="store_true", help="확인 후 스테이징된 변경을 실제 커밋")
     args = parser.parse_args()
+    if args.apply and args.command != "commit":
+        parser.error("--apply는 commit 명령에서만 사용할 수 있습니다.")
     if args.per_file and args.command != "commit":
         parser.error("--per-file은 commit 명령에서만 사용할 수 있습니다.")
-    if args.apply and args.command not in ("commit", "pr"):
-        parser.error("--apply는 commit 또는 pr 명령에서 사용할 수 있습니다.")
-    if args.base and not (args.command == "pr" and args.apply):
-        parser.error("--base는 pr --apply에서만 사용할 수 있습니다.")
     if args.temperature is not None and not 0 <= args.temperature <= 2:
         parser.error("--temperature는 0~2 사이여야 합니다.")
     if args.max_tokens < 16:
@@ -117,9 +86,6 @@ def main() -> int:
     if not Path(".git").exists():
         print("[ERROR] Git 프로젝트의 루트 디렉터리에서 실행하세요.", file=sys.stderr)
         return 1
-
-    if args.command == "pr" and args.apply:
-        return apply_pr(args)
 
     try:
         status = run_git("status", "--short", "--untracked-files=all")
