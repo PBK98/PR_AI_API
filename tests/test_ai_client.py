@@ -6,12 +6,12 @@ from unittest.mock import patch
 import httpx
 from openai import AuthenticationError, APIConnectionError
 
-from ai_client import generate_commit, prepare_diff
+from app.ai_client import generate_commit, prepare_diff
 
 
 class CommitTests(unittest.TestCase):
     def call(self, client):
-        with patch('ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': 'fake-key'}), patch('ai_client.OpenAI') as factory:
+        with patch('app.ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': 'fake-key'}), patch('app.ai_client.OpenAI') as factory:
             factory.return_value.__enter__.return_value = client
             result = generate_commit('+hello', 'gpt-5-mini', None, 2048, True)
             self.assertEqual(factory.call_args.kwargs['max_retries'], 0)
@@ -27,7 +27,7 @@ class CommitTests(unittest.TestCase):
         self.assertEqual(client.chat.completions.create.call_args.kwargs['max_completion_tokens'], 2048)
 
     def test_missing_key(self):
-        with patch('ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': ''}), patch('ai_client.OpenAI') as factory:
+        with patch('app.ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': ''}), patch('app.ai_client.OpenAI') as factory:
             with self.assertRaisesRegex(RuntimeError, 'AI_API_KEY'):
                 generate_commit('+hello', 'gpt-5-mini', None, 2048, True)
             factory.assert_not_called()
