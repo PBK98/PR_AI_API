@@ -1,4 +1,4 @@
-"""Git 변경 사항을 수집하는 CLI의 첫 단계."""
+"""Git 변경 확인 및 커밋/PR 초안 생성 CLI."""
 
 import argparse
 import subprocess
@@ -21,8 +21,8 @@ def run_git(*args: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Git 변경 확인 및 AI 커밋 메시지 생성")
-    parser.add_argument("command", nargs="?", choices=["commit"], help="생략하면 Git 변경만 출력")
+    parser = argparse.ArgumentParser(description="Git 변경 확인 및 AI 커밋/PR 초안 생성")
+    parser.add_argument("command", nargs="?", choices=["commit", "pr"], help="생략하면 Git 변경만 출력")
     parser.add_argument("--model", default="gpt-5-mini")
     parser.add_argument("--temperature", type=float, default=None, help="생략하면 모델 기본값 사용")
     parser.add_argument("--max-tokens", type=int, default=2048)
@@ -49,7 +49,7 @@ def main() -> int:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
 
-    if args.command == "commit":
+    if args.command in ("commit", "pr"):
         # 실제 다음 커밋에 들어가는 staged diff를 우선한다.
         diff = staged or unstaged
         if not diff.strip():
@@ -57,17 +57,26 @@ def main() -> int:
             return 0
         print("[INFO] 생성 대상: " + ("스테이징한 변경" if staged else "스테이징 전 변경"))
         try:
-            from ai_client import generate_commit
+            from ai_client import generate_commit, generate_pr
 
-            message = generate_commit(diff, args.model, args.temperature, args.max_tokens, args.safe_mode)
+            if args.command == "pr":
+                title, body = generate_pr(diff, args.model, args.temperature, args.max_tokens, args.safe_mode)
+            else:
+                message = generate_commit(diff, args.model, args.temperature, args.max_tokens, args.safe_mode)
         except ImportError:
             print("[ERROR] python -m pip install -r requirements.txt 를 먼저 실행하세요.", file=sys.stderr)
             return 1
         except (OSError, RuntimeError) as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
             return 1
-        print("\n--- Commit Message ---")
-        print(message)
+        if args.command == "pr":
+            print("\n--- PR Title ---")
+            print(title)
+            print("\n--- PR Body ---")
+            print(body)
+        else:
+            print("\n--- Commit Message ---")
+            print(message)
         print("----------------------")
         return 0
 
