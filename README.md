@@ -176,7 +176,7 @@ Enter, 다른 입력, Ctrl+C, 입력 종료는 커밋을 취소합니다.
 메시지 생성 후 스테이징 내용이 달라지면 커밋을 중단하고 재실행을 안내합니다.
 Git 사용자 설정이나 커밋 훅 오류는 터미널에 표시합니다.
 
-이 옵션은 `commit` 전용이며 `--per-file`과 함께 사용할 수 있습니다.
+`commit --apply`는 `--per-file`과 함께 사용할 수 있습니다.
 기본 실행은 과제 범위인 초안 출력만 수행합니다.
 
 
@@ -193,3 +193,37 @@ python -m app commit --per-file --safe-mode --apply
 `git status`와 `git log`를 확인한 뒤 남은 변경을 다시 실행하세요.
 이동은 삭제/추가로 분리되므로, 원자적으로 적용해야 하는 모듈 이동 등은
 `--per-file` 없이 하나의 커밋으로 적용하는 것을 권장합니다.
+
+
+## GitHub PR 실제 생성 (선택)
+
+GitHub CLI가 필요하며, AI API 키와 별도로 GitHub 로그인이 필요합니다.
+
+```bash
+brew install gh
+gh auth login
+```
+
+기준 브랜치(main 등)와 다른 작업 브랜치에서 변경을 커밋한 뒤 실행하세요.
+작업 파일과 인덱스는 깨끗해야 합니다.
+
+```bash
+python -m app pr --safe-mode --apply
+# 기준 브랜치를 직접 지정하려면
+python -m app pr --safe-mode --apply --base main
+```
+
+`pr`만 실행하면 기존처럼 미커밋 변경의 초안을 출력합니다.
+`pr --apply`는 origin의 push 주소(GitHub HTTPS/SSH)를 대상으로 하며,
+기준 브랜치를 fetch하고 공통 조상부터 현재 HEAD까지 커밋된 변경을 요약합니다.
+기준 브랜치는 GitHub 기본 브랜치를 사용하거나 `--base`로 지정합니다.
+원격과 작업 브랜치 이름, PR 제목 및 본문을 보여준 후 `y`로 확인하면
+검토한 커밋을 해당 브랜치로 push하고 PR을 생성하여 링크를 출력합니다.
+Enter, 다른 입력, Ctrl+C는 취소합니다. 자동 커밋, 강제 push, merge는 하지 않습니다.
+
+동일한 head/base의 열린 PR이 있으면 링크를 안내하고 종료합니다.
+push가 실패하면 PR을 만들지 않습니다. push 이후 PR 생성 확인에 실패하면
+원격 브랜치는 남으므로 GitHub에서 PR 생성 여부를 확인한 뒤 다시 실행하세요.
+이 기능은 과제의 기본 초안 출력 범위를 확장하는 선택 기능입니다.
+
+[GitHub CLI PR 생성 공식 문서](https://cli.github.com/manual/gh_pr_create)
