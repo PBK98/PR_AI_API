@@ -33,7 +33,7 @@ class ApplyTests(unittest.TestCase):
             generate.assert_not_called()
 
     def test_invalid_option_combinations(self):
-        for argv in (['pr', '--apply'], ['--apply']):
+        for argv in (['--apply'], ['commit', '--base', 'main']):
             with self.subTest(argv=argv), patch('sys.argv', ['app', *argv]), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
                 main()
             self.assertEqual(caught.exception.code, 2)
