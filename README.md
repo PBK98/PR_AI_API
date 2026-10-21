@@ -21,7 +21,7 @@ cp -n .env.example .env
 
 ```dotenv
 AI_API_KEY="교육기관에서 발급받은 키"
-AI_BASE_URL=https://copa.codyssey.kr/v1
+AI_BASE_URL=...
 ```
 
 `.env`는 자동으로 읽으며 셸 환경변수가 우선합니다. 실제 키를 Git에 넣지 마세요.
