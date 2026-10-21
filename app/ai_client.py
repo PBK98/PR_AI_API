@@ -51,7 +51,7 @@ def request_text(diff: str, model: str, temperature: float | None, max_tokens: i
     api_key = os.environ.get("AI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("AI_API_KEY가 없습니다. .env 또는 환경변수에 교육기관 API 키를 설정하세요.")
-    base_url = os.environ.get("AI_BASE_URL", "https://copa.codyssey.kr/v1").strip().rstrip("/")
+    base_url = os.environ.get("AI_BASE_URL", "https://").strip().rstrip("/")
     if not base_url.startswith("https://"):
         raise RuntimeError("AI_BASE_URL은 https://로 시작해야 합니다.")
     payload = prepare_diff(diff, api_key, safe_mode)
