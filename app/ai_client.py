@@ -53,7 +53,7 @@ def request_text(diff: str, model: str, temperature: float | None, max_tokens: i
         raise RuntimeError("AI_API_KEY가 없습니다. .env 또는 환경변수에 교육기관 API 키를 설정하세요.")
     base_url = os.environ.get("AI_BASE_URL", "https://").strip().rstrip("/")
     if not base_url.startswith("https://"):
-        raise RuntimeError("AI_BASE_URL은 https://로 시작해야 합니다.")
+        raise RuntimeError("AI_BASE_URL이 없습니다. .env 또는 환경변수에 교육기관 API 키를 설정하세요.")
     payload = prepare_diff(diff, api_key, safe_mode)
     print("[INFO] AI API 요청 중... (요청 1회, 자동 재시도 없음)")
     try:
