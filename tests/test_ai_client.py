@@ -11,7 +11,7 @@ from app.ai_client import generate_commit, prepare_diff
 
 class CommitTests(unittest.TestCase):
     def call(self, client):
-        with patch('app.ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': 'fake-key'}), patch('app.ai_client.OpenAI') as factory:
+        with patch('app.ai_client.load_dotenv'), patch.dict(os.environ, {'AI_API_KEY': 'fake-key', 'AI_BASE_URL': 'https://example.invalid/v1'}), patch('app.ai_client.OpenAI') as factory:
             factory.return_value.__enter__.return_value = client
             result = generate_commit('+hello', 'gpt-5-mini', None, 2048, True)
             self.assertEqual(factory.call_args.kwargs['max_retries'], 0)

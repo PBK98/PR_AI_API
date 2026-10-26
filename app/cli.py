@@ -64,16 +64,60 @@ def confirm_file_commits(messages: dict[str, str], expected_diff: str) -> int:
     return 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Git 변경 확인 및 AI 커밋/PR 초안 생성")
-    parser.add_argument("command", nargs="?", choices=["commit", "pr"], help="생략하면 Git 변경만 출력")
-    parser.add_argument("--model", default="gpt-5-mini")
-    parser.add_argument("--temperature", type=float, default=None, help="생략하면 모델 기본값 사용")
-    parser.add_argument("--max-tokens", type=int, default=2048)
-    parser.add_argument("--safe-mode", action="store_true", help="전송 diff를 최대 200줄/20,000자로 제한")
-    parser.add_argument("--per-file", action="store_true", help="commit 메시지를 파일별로 생성")
-    parser.add_argument("--apply", action="store_true", help="확인 후 스테이징된 변경을 실제 커밋")
-    args = parser.parse_args()
+def build_parser() -> argparse.ArgumentParser:
+    """명령어와 옵션을 역할별로 정의한다."""
+    parser = argparse.ArgumentParser(
+        description="Git 변경 확인 및 AI 커밋/PR 초안 생성"
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["commit", "pr"],
+        help="생략하면 Git 변경만 출력",
+    )
+
+    ai_options = parser.add_argument_group("AI 설정")
+    ai_options.add_argument(
+        "--model",
+        default="gpt-5-mini",
+        help="사용할 AI 모델",
+    )
+    ai_options.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="생략하면 모델 기본값 사용",
+    )
+    ai_options.add_argument(
+        "--max-tokens",
+        type=int,
+        default=2048,
+        help="출력 및 추론 토큰 한도",
+    )
+
+    safety_options = parser.add_argument_group("전송 설정")
+    safety_options.add_argument(
+        "--safe-mode",
+        action="store_true",
+        help="전송 diff를 최대 200줄/20,000자로 제한",
+    )
+
+    commit_options = parser.add_argument_group("커밋 전용")
+    commit_options.add_argument(
+        "--per-file",
+        action="store_true",
+        help="commit 메시지를 파일별로 생성",
+    )
+    commit_options.add_argument(
+        "--apply",
+        action="store_true",
+        help="확인 후 스테이징된 변경을 실제 커밋",
+    )
+    return parser
+
+
+def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """옵션의 사용 조건과 값의 범위를 확인한다."""
     if args.apply and args.command != "commit":
         parser.error("--apply는 commit 명령에서만 사용할 수 있습니다.")
     if args.per_file and args.command != "commit":
@@ -82,6 +126,13 @@ def main() -> int:
         parser.error("--temperature는 0~2 사이여야 합니다.")
     if args.max_tokens < 16:
         parser.error("--max-tokens는 16 이상이어야 합니다.")
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    validate_args(parser, args)
+
     # .git 파일을 사용하는 worktree도 허용한다.
     if not Path(".git").exists():
         print("[ERROR] Git 프로젝트의 루트 디렉터리에서 실행하세요.", file=sys.stderr)
