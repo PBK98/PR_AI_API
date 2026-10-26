@@ -17,4 +17,4 @@ test.md
 .env
 .env.*
 !.env.example
-test/
+/tests/
