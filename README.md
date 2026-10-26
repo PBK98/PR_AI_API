@@ -143,7 +143,10 @@ app/
   __main__.py       # python -m app 진입점
   cli.py            # 명령 및 출력
   git_client.py     # Git 상태·diff 수집
-  ai_client.py      # API 연결·프롬프트·결과 검증
+  ai_client.py      # 환경설정·API 통신·생성 흐름 연결
+  prompts.py        # 커밋/PR 작성 규칙
+  diff_processing.py # 키 마스킹·diff 제한·파일별 입력 구성
+  response_format.py # JSON·제목·PR·파일별 결과 검증
   pr_template.py    # 템플릿 로딩·채우기·필수 섹션 검증
 .github/pull_request_template.md
 tests/
@@ -183,3 +186,18 @@ Enter, 다른 입력, 확인 질문에서의 Ctrl+C 또는 입력 종료는 취�
 파일별 커밋 중 오류가 발생하면 중단하며, 이미 완료된 커밋은 유지됩니다.
 안전 모드의 파일별 제한은 최대 10개이므로 대상을 나누어 스테이징하세요.
 이동이나 서로 의존하는 변경은 하나의 커밋으로 묶는 편이 좋습니다.
+
+
+## 코드를 읽는 순서
+
+1. `app/cli.py`: `main()`에서 옵션을 읽고 `handle_generation()`으로 전달합니다.
+   `handle_commit()`과 `handle_pr()`가 명령별 실행과 출력을 담당합니다.
+2. `app/ai_client.py`: `generate_commit()` 또는 `generate_pr()`에서 시작합니다.
+   `request_text()`는 설정 로딩 → diff 정리 → API 요청 → 응답 추출 순서로 연결합니다.
+3. `app/prompts.py`: AI에게 전달하는 작성 규칙을 확인합니다.
+4. `app/diff_processing.py`: 마스킹과 안전 모드 입력 제한을 확인합니다.
+5. `app/response_format.py`: AI 응답을 JSON으로 해석하고 제목·필수 항목을 검증합니다.
+6. `app/pr_template.py`: 템플릿 항목 탐색과 값 정리, 본문 조립을 확인합니다.
+7. `app/git_client.py`: Git 명령 실행과 임시 인덱스를 사용한 파일별 커밋을 확인합니다.
+
+새 파일은 책임 분리를 위한 것이며 실행 명령, API 요청 횟수, 안전 모드 제한은 동일합니다.
