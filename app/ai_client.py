@@ -53,13 +53,11 @@ def send_request(config: APIConfig, payload: str, model: str, temperature: float
     """API를 한 번 호출하고 통신 오류를 사용자 메시지로 바꾼다."""
     try:
         # None일 때 temperature 인자 자체를 생략해 서버의 모델 기본값을 사용한다.
-        options = {}
-        if temperature is not None:
-            options["temperature"] = temperature
+        options = {} if temperature is None else {"temperature": temperature}
         # with 블록이 끝나면 연결 자원을 정리한다. 자동 재시도는 0회로 제한한다.
         with OpenAI(api_key=config.api_key, base_url=config.base_url,
                     timeout=API_TIMEOUT_SECONDS, max_retries=0) as client:
-            response = client.chat.completions.create(
+            return client.chat.completions.create(
                 model=model,
                 # 작성 규칙(system)과 분석할 변경 내용(user)을 구분해 보낸다.
                 messages=[
@@ -85,7 +83,6 @@ def send_request(config: APIConfig, payload: str, model: str, temperature: float
         }
         reason = reasons.get(exc.status_code, "API 서버 오류입니다. 잠시 후 다시 실행하세요.")
         raise RuntimeError(f"HTTP {exc.status_code}: {reason}") from None
-    return response
 
 
 def extract_response_text(response) -> str:
@@ -111,12 +108,12 @@ def generate_commit(diff: str, model: str, temperature: float | None, max_tokens
 def generate_pr(diff: str, model: str, temperature: float | None, max_tokens: int, safe_mode: bool) -> tuple[str, str]:
     """템플릿이 있으면 적용하고, 없으면 기본 세 섹션으로 (제목, 본문)을 만든다."""
     template = load_template()
+    instructions = PR_INSTRUCTIONS
     if template is not None:
         print("[INFO] .github/pull_request_template.md 양식을 적용합니다.")
-        text = request_text(diff, model, temperature, max_tokens, safe_mode, template_instructions(template))
-        return render_template(text, template)
-    text = request_text(diff, model, temperature, max_tokens, safe_mode, PR_INSTRUCTIONS)
-    return format_pr(text)
+        instructions = template_instructions(template)
+    text = request_text(diff, model, temperature, max_tokens, safe_mode, instructions)
+    return render_template(text, template) if template is not None else format_pr(text)
 
 
 def generate_file_commits(files: dict[str, str], model: str, temperature: float | None,
