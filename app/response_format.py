@@ -15,15 +15,15 @@ def is_nonempty_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def parse_json_response(text: str, error_message: str):
+def parse_json_response(response_text: str, error_message: str):
     """코드 블록 포장을 제거한 뒤 JSON을 해석한다."""
-    text = text.strip()
-    if text.startswith("```") and text.endswith("```"):
+    response_text = response_text.strip()
+    if response_text.startswith("```") and response_text.endswith("```"):
         # 모델이 ```json ... ```으로 감싸면 첫 줄과 마지막 줄을 제외한다.
-        text = "\n".join(text.splitlines()[1:-1])
+        response_text = "\n".join(response_text.splitlines()[1:-1])
     try:
         # JSON 문법만 해석한다. 객체/목록 여부와 필수 키 검증은 호출자가 담당한다.
-        return json.loads(text)
+        return json.loads(response_text)
     except json.JSONDecodeError:
         raise RuntimeError(error_message) from None
 
@@ -36,65 +36,65 @@ def shorten_title(title: str, max_length: int) -> str:
     return title[:max_length - 3].rstrip() + "..."
 
 
-def format_commit(text: str) -> str:
+def format_commit(response_text: str) -> str:
     """응답 첫 줄을 커밋 제목으로 정리한다."""
     # 공통 API 응답 검사에서 빈 문자열을 거른 후 호출한다. 제목은 첫 줄만 사용한다.
-    title = text.splitlines()[0].strip().strip('`"')
-    if not title:
+    commit_title = response_text.splitlines()[0].strip().strip('`"')
+    if not commit_title:
         raise RuntimeError("AI 응답에서 커밋 제목을 찾지 못했습니다.")
-    if len(title) > MAX_COMMIT_TITLE_LENGTH:
-        title = shorten_title(title, MAX_COMMIT_TITLE_LENGTH)
+    if len(commit_title) > MAX_COMMIT_TITLE_LENGTH:
+        commit_title = shorten_title(commit_title, MAX_COMMIT_TITLE_LENGTH)
         print("[INFO] 커밋 제목을 최대 72자로 줄였습니다.")
-    return title
+    return commit_title
 
 
-def format_pr(text: str) -> tuple[str, str]:
+def format_pr(response_text: str) -> tuple[str, str]:
     """JSON을 검증하고 제목/섹션/불릿을 일정한 형식으로 출력한다."""
-    data = parse_json_response(text, "PR 응답이 올바른 JSON이 아닙니다. 다시 실행하세요.")
-    title = read_pr_title(data)
-    if len(title) > MAX_PR_TITLE_LENGTH:
-        title = shorten_title(title, MAX_PR_TITLE_LENGTH)
+    response_data = parse_json_response(response_text, "PR 응답이 올바른 JSON이 아닙니다. 다시 실행하세요.")
+    pr_title = read_pr_title(response_data)
+    if len(pr_title) > MAX_PR_TITLE_LENGTH:
+        pr_title = shorten_title(pr_title, MAX_PR_TITLE_LENGTH)
         print("[INFO] PR 제목을 최대 80자로 줄였습니다.")
-    sections = []
-    for key, header in PR_SECTIONS:
-        items = data.get(key)
-        if not is_nonempty_text_list(items):
-            raise RuntimeError(f"PR 응답의 {header}에는 내용이 있는 항목이 하나 이상 필요합니다.")
+    markdown_sections = []
+    for section_key, section_heading in PR_SECTIONS:
+        section_items = response_data.get(section_key)
+        if not is_nonempty_text_list(section_items):
+            raise RuntimeError(f"PR 응답의 {section_heading}에는 내용이 있는 항목이 하나 이상 필요합니다.")
         bullets = []
-        for item in items:
-            content = " ".join(item.split()).lstrip("-* ")
-            if not content:
-                raise RuntimeError(f"PR 응답의 {header}에 빈 항목이 있습니다.")
-            bullets.append("- " + content)
-        sections.append("## " + header + "\n" + "\n".join(bullets))
-    return title, "\n\n".join(sections)
+        for section_item in section_items:
+            bullet_text = " ".join(section_item.split()).lstrip("-* ")
+            if not bullet_text:
+                raise RuntimeError(f"PR 응답의 {section_heading}에 빈 항목이 있습니다.")
+            bullets.append("- " + bullet_text)
+        markdown_sections.append("## " + section_heading + "\n" + "\n".join(bullets))
+    return pr_title, "\n\n".join(markdown_sections)
 
 
-def format_file_commits(text: str, files: dict[str, str]) -> dict[str, str]:
+def format_file_commits(response_text: str, file_diffs: dict[str, str]) -> dict[str, str]:
     """모든 파일 ID를 검증하고 입력 순서대로 제목을 연결한다."""
-    data = parse_json_response(text, "파일별 커밋 응답이 올바른 JSON이 아닙니다.")
-    if not isinstance(data, dict) or not isinstance(data.get("commits"), list):
+    response_data = parse_json_response(response_text, "파일별 커밋 응답이 올바른 JSON이 아닙니다.")
+    if not isinstance(response_data, dict) or not isinstance(response_data.get("commits"), list):
         raise RuntimeError("파일별 커밋 응답 형식이 잘못되었습니다.")
-    titles = {}
-    for item in data["commits"]:
-        if not isinstance(item, dict):
+    titles_by_file_id = {}
+    for commit_item in response_data["commits"]:
+        if not isinstance(commit_item, dict):
             raise RuntimeError("파일별 커밋 항목 형식이 잘못되었습니다.")
-        index, title = item.get("id"), item.get("title")
+        file_id, commit_title = commit_item.get("id"), commit_item.get("title")
         # bool은 int의 하위 타입이므로 isinstance 대신 type을 비교해 True/False를 거부한다.
-        valid_index = type(index) is int and index in range(len(files))
-        if not valid_index or index in titles:
+        is_valid_file_id = type(file_id) is int and file_id in range(len(file_diffs))
+        if not is_valid_file_id or file_id in titles_by_file_id:
             raise RuntimeError("파일별 커밋 응답에 중복되거나 잘못된 파일 ID가 있습니다.")
-        if not is_nonempty_text(title):
+        if not is_nonempty_text(commit_title):
             raise RuntimeError("파일별 커밋 응답에 빈 제목이 있습니다.")
-        title = " ".join(title.split())
+        commit_title = " ".join(commit_title.split())
         # ^는 문자열 시작, \s+는 공백 하나 이상, \S는 공백이 아닌 실제 제목 문자다.
-        if not re.match(r"^(feat|fix|docs|refactor|test|chore):\s+\S", title):
+        if not re.match(r"^(feat|fix|docs|refactor|test|chore):\s+\S", commit_title):
             raise RuntimeError("파일별 커밋 제목의 접두사 형식이 잘못되었습니다.")
-        titles[index] = shorten_title(title, MAX_COMMIT_TITLE_LENGTH)
-    if len(titles) != len(files):
+        titles_by_file_id[file_id] = shorten_title(commit_title, MAX_COMMIT_TITLE_LENGTH)
+    if len(titles_by_file_id) != len(file_diffs):
         raise RuntimeError("일부 파일의 커밋 메시지가 누락되었습니다. --max-tokens를 늘려 다시 실행하세요.")
     # AI 응답 순서 대신 입력 딕셔너리의 순서로 결과를 구성한다.
-    return {path: titles[index] for index, path in enumerate(files)}
+    return {file_path: titles_by_file_id[file_id] for file_id, file_path in enumerate(file_diffs)}
 
 
 def is_nonempty_text_list(value: object) -> bool:
@@ -104,10 +104,10 @@ def is_nonempty_text_list(value: object) -> bool:
     return all(is_nonempty_text(item) for item in value)
 
 
-def read_pr_title(data: object) -> str:
+def read_pr_title(response_data: object) -> str:
     """기본 PR과 템플릿 PR에 공통인 제목 검증·공백 정리를 수행한다."""
-    if not isinstance(data, dict) or not is_nonempty_text(data.get("title")):
+    if not isinstance(response_data, dict) or not is_nonempty_text(response_data.get("title")):
         raise RuntimeError("PR 응답에 유효한 제목이 없습니다.")
     # 연속 공백과 줄바꿈을 단일 공백으로 합쳐 제목을 반드시 한 줄로 만든다.
-    title = " ".join(data["title"].split())
-    return title
+    pr_title = " ".join(response_data["title"].split())
+    return pr_title
