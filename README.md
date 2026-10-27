@@ -11,13 +11,21 @@ Python 3.10 이상과 Git이 필요합니다. 프로젝트 루트에서 실행�
 ```bash
 git clone https://github.com/PBK98/PR_AI_API.git
 cd PR_AI_API
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+bash scripts/setup-venv.sh
 cp -n .env.example .env
 ```
 
-이미 저장소와 가상환경이 있으면 활성화부터 실행하세요. `.env`를 열어 키를 입력합니다.
+`setup-venv.sh`는 초기 설정용 스크립트입니다. `.venv`가 없으면 생성하고 `requirements.txt`의 패키지를 설치·확인한 뒤, 가상환경이 활성화된 **새 Bash 셸**로 들어갑니다. 기존 `.venv`는 재사용합니다. 셸이 열리면 `python -m app`을 실행할 수 있고, `exit`하면 원래 셸로 돌아옵니다.
+
+관리자 권한이나 `sudo`는 사용하지 않습니다. 패키지는 프로젝트의 `.venv`에 설치하며 시스템 Python에 설치하지 않습니다. 교육장 iMac에는 Python 3.10 이상과 Git이 설치되어 있어야 하고, 프로젝트 폴더에 쓰기 권한과 패키지 다운로드를 위한 네트워크 연결이 필요합니다. 누락된 시스템 도구를 자동 설치하지는 않습니다.
+
+직접 실행한 스크립트는 부모 셸의 환경을 바꿀 수 없으므로 새 셸을 여는 방식입니다. 이 셸은 가상환경 PATH를 유지하도록 개인 셸 초기화 파일을 읽지 않아 사용자 별칭이나 테마는 적용되지 않습니다. 현재 Bash 또는 Zsh에서 그대로 활성화하려면 다음 명령을 사용하세요.
+
+```bash
+source scripts/setup-venv.sh
+```
+
+`source` 방식은 작업 디렉터리를 변경하지 않습니다. 설치에 실패하면 활성화 단계로 넘어가지 않습니다. 초기 설정 후 패키지 설치 확인 없이 활성화만 하려면 `source .venv/bin/activate`를 사용하세요. 이후 `.env`를 열어 키를 입력합니다.
 
 ```dotenv
 AI_API_KEY="교육기관에서 발급받은 키"
