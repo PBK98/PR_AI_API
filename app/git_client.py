@@ -35,16 +35,14 @@ def collect_file_diffs(staged: bool) -> dict[str, str]:
     # -z는 파일명 구분자를 NUL로 만든다. 파일명에 공백/줄바꿈이 있어도 분리할 수 있다.
     # --no-renames는 이동을 삭제와 추가로 나누어 파일마다 독립적으로 다룬다.
     names = run_git("diff", *options, "--no-renames", "--name-only", "-z")
-    file_diffs = {}
-    for name in names.split("\0"):
-        if not name:
-            continue
-        # -- 뒤는 경로다. :(literal)은 [abc] 같은 문자를 패턴이 아닌 실제 파일명으로 처리한다.
-        file_diffs[name] = run_git(
+    # -- 뒤는 경로다. :(literal)은 [abc] 같은 문자를 실제 파일명으로 처리한다.
+    return {
+        name: run_git(
             "diff", *options, "--no-renames", "--no-ext-diff", "--no-textconv",
             "--", ":(literal)" + name,
         )
-    return file_diffs
+        for name in names.split("\0") if name
+    }
 
 
 def commit_staged_file(path: str, message: str) -> str:
