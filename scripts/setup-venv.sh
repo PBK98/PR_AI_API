@@ -37,19 +37,9 @@ _pr_ai_setup_venv() {
         return 1
     fi
 
-    if [ ! -d "$project_dir/.venv" ]; then
-        if ! command -v python3 >/dev/null 2>&1; then
-            printf '%s\n' '[ERROR] Python 3를 먼저 설치하세요.' >&2
-            return 1
-        fi
-        printf '%s\n' '[INFO] .venv 가상환경을 생성합니다.'
-        python3 -m venv "$project_dir/.venv" || return 1
-    fi
-
-    if [ ! -x "$python_path" ] || [ ! -f "$project_dir/.venv/bin/activate" ]; then
-        printf '%s\n' '[ERROR] 기존 .venv가 올바르지 않습니다. 가상환경을 확인하세요.' >&2
-        return 1
-    fi
+    # 먼저 정확한 Python 버전을 확보한 뒤 그 Python으로 가상환경을 만든다.
+    bash "$project_dir/scripts/prepare-python.sh" || return 1
+    "$python_path" --version || return 1
 
     # pip도 가상환경의 Python으로 실행해 시스템 Python에 설치하지 않는다.
     printf '%s\n' '[INFO] requirements.txt의 패키지를 설치·확인합니다.'
