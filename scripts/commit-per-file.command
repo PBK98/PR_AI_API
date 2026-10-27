@@ -1,7 +1,7 @@
 #!/bin/zsh
-# 어느 디렉터리에서 실행해도 이 프로젝트의 가상환경을 사용한다.
+# 앱은 이 프로젝트에서, Git 작업 대상은 전달받은 경로에서 찾는다.
 project_dir="$(cd -- "$(dirname -- "$0")/.." && pwd)" || exit 1
-cd -- "$project_dir" || exit 1
+repository_dir="${1:-$project_dir}"
 
 python_path="$project_dir/.venv/bin/python"
 if [[ ! -x "$python_path" ]]; then
@@ -10,7 +10,7 @@ if [[ ! -x "$python_path" ]]; then
     exit_code=1
 else
     # 자동 스테이징 없이, 앱의 확인 질문을 거쳐 파일별로 커밋한다.
-    "$python_path" -m app commit --safe-mode --per-file --apply
+    "$python_path" "$project_dir/scripts/run_in_repository.py" "$repository_dir"
     exit_code=$?
 fi
 
