@@ -54,8 +54,7 @@ def commit_staged_file(path: str, message: str) -> str:
     같은 파일의 unstaged 변경이 보존된다.
     """
     # 작업 파일이 아니라 인덱스에 올라간 변경만 읽는다. --binary는 바이너리 변경도 담는다.
-    patch = run_git("diff", "--cached", "--binary", "--no-renames",
-                    "--no-ext-diff", "--no-textconv", "--", ":(literal)" + path)
+    patch = read_staged_file_patch(path)
     if not patch.strip():
         raise RuntimeError(f"{path!r}: 스테이징된 변경이 없습니다.")
     with tempfile.TemporaryDirectory(prefix="ai-git-index-") as directory:
@@ -80,3 +79,16 @@ def initialize_commit_index(env: dict[str, str]) -> None:
         run_git("read-tree", "--empty", env=env)
     else:
         raise RuntimeError("현재 HEAD를 확인할 수 없습니다.")
+
+
+def read_staged_snapshot() -> str:
+    """커밋 직전 검증에 사용할 전체 스테이징 변경을 바이너리 내용까지 읽는다."""
+    return run_git("diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv")
+
+
+def read_staged_file_patch(path: str) -> str:
+    """한 파일의 스테이징 변경을 읽는다. 특수문자가 있는 경로도 그대로 취급한다."""
+    return run_git(
+        "diff", "--cached", "--binary", "--no-renames",
+        "--no-ext-diff", "--no-textconv", "--", ":(literal)" + path,
+    )
