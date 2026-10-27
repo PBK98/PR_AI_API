@@ -1,66 +1,71 @@
-"""사용자 명령을 읽고 Git 상태 확인과 생성 작업을 연결하는 진입점."""
+"""CLI 명령과 옵션의 정의 및 유효성 검사. Git이나 API를 실행하지 않는다."""
 
-import sys
-from pathlib import Path
-
-from .arguments import build_parser, validate_args
-from .commands import handle_generation
-from .git_client import read_staged_snapshot, run_git
+import argparse
 
 
-def main() -> int:
-    """인자 검증 → Git 상태 수집 → 명령 실행. 반환값 0은 정상 종료, 1은 처리 실패다."""
-    parser = build_parser()
-    args = parser.parse_args()
-    validate_args(parser, args)
+def build_parser() -> argparse.ArgumentParser:
+    """명령어와 옵션을 역할별로 정의한다."""
+    # 여기서는 허용할 명령과 옵션만 등록한다. 실제 해석은 main의 parse_args가 수행한다.
+    # --safe-mode처럼 하이픈이 있는 옵션은 args.safe_mode처럼 밑줄 속성으로 읽는다.
+    parser = argparse.ArgumentParser(
+        description="Git 변경 확인 및 AI 커밋/PR 초안 생성"
+    )
+    parser.add_argument(
+        "command",
+        # nargs="?"는 명령 생략을 허용한다. 생략 시 command는 None이 된다.
+        nargs="?",
+        choices=["commit", "pr"],
+        help="생략하면 Git 변경만 출력",
+    )
 
-    # .git 파일을 사용하는 worktree도 허용한다.
-    if not Path(".git").exists():
-        print("[ERROR] Git 프로젝트의 루트 디렉터리에서 실행하세요.", file=sys.stderr)
-        return 1
+    ai_options = parser.add_argument_group("AI 설정")
+    ai_options.add_argument(
+        "--model",
+        default="gpt-5-mini",
+        help="사용할 AI 모델",
+    )
+    ai_options.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="생략하면 모델 기본값 사용",
+    )
+    ai_options.add_argument(
+        "--max-tokens",
+        type=int,
+        default=2048,
+        help="출력 및 추론 토큰 한도",
+    )
 
-    snapshot = ""
-    try:
-        status = run_git("status", "--short", "--untracked-files=all")
-        if not status.strip():
-            print("[INFO] 변경 사항이 없습니다.")
-            return 0
+    safety_options = parser.add_argument_group("전송 설정")
+    # store_true 옵션은 값을 따로 받지 않는다. 지정하면 True, 생략하면 False다.
+    safety_options.add_argument(
+        "--safe-mode",
+        action="store_true",
+        help="전송 diff를 최대 200줄/20,000자로 제한",
+    )
 
-        # unstaged: 작업 파일과 인덱스의 차이. staged: 인덱스와 HEAD의 차이.
-        # 인덱스는 git add로 다음 커밋에 포함할 내용을 모아 둔 영역이다.
-        unstaged = run_git("diff", "--no-ext-diff", "--no-textconv")
-        staged = run_git("diff", "--cached", "--no-ext-diff", "--no-textconv")
-        if args.apply:
-            if not staged.strip():
-                print("[ERROR] 커밋할 파일을 먼저 git add로 스테이징하세요.", file=sys.stderr)
-                return 1
-            # 실제 적용 직전에 비교할 원본을 보관한다. 바이너리 변경 내용도 포함한다.
-            snapshot = read_staged_snapshot()
-    except (OSError, RuntimeError) as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
-        return 1
-
-    if args.command in ("commit", "pr"):
-        try:
-            return handle_generation(args, status, staged, unstaged, snapshot)
-        except ImportError:
-            print("[ERROR] python -m pip install -r requirements.txt 를 먼저 실행하세요.", file=sys.stderr)
-            return 1
-        except (OSError, RuntimeError) as exc:
-            print(f"[ERROR] {exc}", file=sys.stderr)
-            return 1
-
-    show_changes(status, staged, unstaged)
-    return 0
+    commit_options = parser.add_argument_group("커밋 전용")
+    commit_options.add_argument(
+        "--per-file",
+        action="store_true",
+        help="commit 메시지를 파일별로 생성",
+    )
+    commit_options.add_argument(
+        "--apply",
+        action="store_true",
+        help="확인 후 스테이징된 변경을 실제 커밋",
+    )
+    return parser
 
 
-def show_changes(status: str, staged: str, unstaged: str) -> None:
-    """수집한 Git 상태와 두 종류의 diff를 출력한다."""
-    print("--- 변경된 파일 (git status) ---")
-    print(status, end="")
-    print("\n--- 스테이징 전 변경 (git diff) ---")
-    print(unstaged or "변경 내용이 없습니다.")
-    print("--- 스테이징한 변경 (git diff --cached) ---")
-    print(staged or "변경 내용이 없습니다.")
-    if any(line.startswith("?? ") for line in status.splitlines()):
-        print("[INFO] 새 미추적 파일은 목록에만 표시됩니다. 내용을 확인하려면 해당 파일을 git add 하세요.")
+def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """옵션의 사용 조건과 값의 범위를 확인한다."""
+    if args.apply and args.command != "commit":
+        parser.error("--apply는 commit 명령에서만 사용할 수 있습니다.")
+    if args.per_file and args.command != "commit":
+        parser.error("--per-file은 commit 명령에서만 사용할 수 있습니다.")
+    if args.temperature is not None and not 0 <= args.temperature <= 2:
+        parser.error("--temperature는 0~2 사이여야 합니다.")
+    if args.max_tokens < 16:
+        parser.error("--max-tokens는 16 이상이어야 합니다.")
