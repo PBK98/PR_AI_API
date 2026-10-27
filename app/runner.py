@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from .cli import build_parser, validate_args
-from .commands import handle_generation
+from .generation import handle_generation
 from .git_client import read_staged_snapshot, run_git
 
 

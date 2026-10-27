@@ -144,7 +144,7 @@ app/
   __main__.py       # python -m app 진입점
   runner.py         # 실행 흐름·Git 상태 출력
   cli.py            # 명령어·옵션 정의와 검증
-  commands.py       # 커밋 메시지·PR 초안 생성 및 출력
+  generation.py       # 커밋 메시지·PR 초안 생성 및 출력
   commit_actions.py # 사용자 확인·스테이징 검증·실제 커밋
   git_client.py     # Git 명령·diff 수집·임시 인덱스 처리
   ai_client.py      # 환경설정·API 통신·생성 흐름 연결
@@ -199,9 +199,9 @@ Enter, 다른 입력, 확인 질문에서의 Ctrl+C 또는 입력 종료는 취�
 1. **실행 진입** — `__main__.py`가 `runner.main()`을 호출합니다.
 2. **명령 해석** — `cli.py`의 `build_parser()`와 `validate_args()`가 명령과 옵션을 확인합니다.
 3. **변경 조회** — `runner.py`가 Git 상태와 스테이징 전·후 diff를 읽습니다. 명령을 생략하면 상태만 출력합니다.
-4. **분석 대상 선택** — `commands.py`의 `handle_generation()`이 스테이징한 변경을 우선 선택합니다.
+4. **분석 대상 선택** — `generation.py`의 `handle_generation()`이 스테이징한 변경을 우선 선택합니다.
 5. **AI 요청** — `ai_client.py`가 설정을 읽고, `diff_processing.py`에서 입력을 정리한 뒤 요청합니다. 고정 작성 규칙은 `prompts.py`에 있습니다.
-6. **응답 검증과 출력** — `response_format.py`가 응답 형식을 검증하고 `commands.py`가 결과를 출력합니다. 템플릿 PR은 `pr_template.py`가 빈 항목을 채워 Markdown 본문을 만듭니다.
+6. **응답 검증과 출력** — `response_format.py`가 응답 형식을 검증하고 `generation.py`가 결과를 출력합니다. 템플릿 PR은 `pr_template.py`가 빈 항목을 채워 Markdown 본문을 만듭니다.
 7. **선택적 커밋** — `commit --apply`일 때만 `commit_actions.py`가 사용자 확인과 스테이징 재검증 후 커밋합니다. 실제 Git 명령과 임시 인덱스 처리는 `git_client.py`가 담당합니다.
 
 ### 변수 이름으로 데이터 구분하기
@@ -238,7 +238,7 @@ AI는 채울 내용을 JSON으로 반환하고, `render_template()`이 다음 �
 
 ### 함수 안의 import
 
-`commands.py`는 AI 생성 함수를 사용할 때 `ai_client.py`를 불러옵니다.
+`generation.py`는 AI 생성 함수를 사용할 때 `ai_client.py`를 불러옵니다.
 이 덕분에 `openai`나 `python-dotenv`가 설치되지 않아도 도움말과 Git 상태 조회는 사용할 수 있습니다.
 AI 생성이 필요한 시점에 패키지가 없으면 설치 안내를 출력합니다.
 
