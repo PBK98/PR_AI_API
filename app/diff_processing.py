@@ -10,11 +10,9 @@ MAX_SAFE_FILES = 10
 
 def limit_diff(diff: str, max_lines: int, max_chars: int) -> str:
     """줄 수를 먼저 제한하고 문자 수 한도를 적용한다."""
-    lines = diff.splitlines()
-    selected_lines = lines[:max_lines]
+    selected_lines = diff.splitlines()[:max_lines]
     # 줄을 합친 후 문자 수도 제한하므로 한 줄이 매우 길어도 상한을 지킨다.
-    selected_text = "\n".join(selected_lines)
-    return selected_text[:max_chars]
+    return "\n".join(selected_lines)[:max_chars]
 
 
 def prepare_diff(diff: str, api_key: str, safe_mode: bool) -> str:
@@ -27,14 +25,14 @@ def prepare_diff(diff: str, api_key: str, safe_mode: bool) -> str:
     diff = diff.replace(api_key, "[REDACTED]")
     # sk- 뒤의 영문자·숫자·밑줄·하이픈이 한 개 이상 이어지는 패턴을 치환한다.
     diff = re.sub(r"sk-[A-Za-z0-9_-]+", "[REDACTED]", diff)
-    if safe_mode:
-        limited = limit_diff(diff, MAX_DIFF_LINES, MAX_DIFF_CHARS)
-        # splitlines/join으로 끝 줄바꿈만 사라진 경우는 내용 생략으로 판단하지 않는다.
-        if len(limited) < len(diff.rstrip("\n")):
-            print("[INFO] 안전 모드: diff 일부만 전송합니다.")
-            limited += "\n[입력 제한으로 나머지 diff 생략]"
-        return limited
-    return diff
+    if not safe_mode:
+        return diff
+    limited = limit_diff(diff, MAX_DIFF_LINES, MAX_DIFF_CHARS)
+    # splitlines/join으로 끝 줄바꿈만 사라진 경우는 내용 생략으로 판단하지 않는다.
+    if len(limited) < len(diff.rstrip("\n")):
+        print("[INFO] 안전 모드: diff 일부만 전송합니다.")
+        limited += "\n[입력 제한으로 나머지 diff 생략]"
+    return limited
 
 
 def prepare_file_records(files: dict[str, str], safe_mode: bool) -> list[dict]:
