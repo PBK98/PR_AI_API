@@ -51,10 +51,7 @@ def format_commit(text: str) -> str:
 def format_pr(text: str) -> tuple[str, str]:
     """JSON을 검증하고 제목/섹션/불릿을 일정한 형식으로 출력한다."""
     data = parse_json_response(text, "PR 응답이 올바른 JSON이 아닙니다. 다시 실행하세요.")
-    if not isinstance(data, dict) or not is_nonempty_text(data.get("title")):
-        raise RuntimeError("PR 응답에 유효한 제목이 없습니다.")
-    # 연속 공백과 줄바꿈을 단일 공백으로 합쳐 제목을 반드시 한 줄로 만든다.
-    title = " ".join(data["title"].split())
+    title = read_pr_title(data)
     if len(title) > MAX_PR_TITLE_LENGTH:
         title = shorten_title(title, MAX_PR_TITLE_LENGTH)
         print("[INFO] PR 제목을 최대 80자로 줄였습니다.")
@@ -105,3 +102,12 @@ def is_nonempty_text_list(value: object) -> bool:
     if not isinstance(value, list) or not value:
         return False
     return all(is_nonempty_text(item) for item in value)
+
+
+def read_pr_title(data: object) -> str:
+    """기본 PR과 템플릿 PR에 공통인 제목 검증·공백 정리를 수행한다."""
+    if not isinstance(data, dict) or not is_nonempty_text(data.get("title")):
+        raise RuntimeError("PR 응답에 유효한 제목이 없습니다.")
+    # 연속 공백과 줄바꿈을 단일 공백으로 합쳐 제목을 반드시 한 줄로 만든다.
+    title = " ".join(data["title"].split())
+    return title
