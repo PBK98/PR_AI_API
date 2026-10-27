@@ -141,8 +141,11 @@ API 키 원문과 일반적인 `sk-` 패턴은 diff에서 마스킹합니다.
 ```text
 app/
   __main__.py       # python -m app 진입점
-  cli.py            # 명령 및 출력
-  git_client.py     # Git 상태·diff 수집
+  cli.py            # 실행 흐름·Git 상태 출력
+  arguments.py      # 명령어·옵션 정의와 검증
+  commands.py       # 커밋 메시지·PR 초안 생성 및 출력
+  commit_actions.py # 사용자 확인·스테이징 검증·실제 커밋
+  git_client.py     # Git 명령·diff 수집·임시 인덱스 처리
   ai_client.py      # 환경설정·API 통신·생성 흐름 연결
   prompts.py        # 커밋/PR 작성 규칙
   diff_processing.py # 키 마스킹·diff 제한·파일별 입력 구성
@@ -190,8 +193,11 @@ Enter, 다른 입력, 확인 질문에서의 Ctrl+C 또는 입력 종료는 취�
 
 ## 코드를 읽는 순서
 
-1. `app/cli.py`: `main()`에서 옵션을 읽고 `handle_generation()`으로 전달합니다.
-   `handle_commit()`과 `handle_pr()`가 명령별 실행과 출력을 담당합니다.
+1. `app/cli.py`: `main()`에서 옵션을 읽고 Git 상태를 수집한 뒤 생성 작업으로 전달합니다.
+   옵션 정의와 검증은 `app/arguments.py`에 있습니다.
+   `app/commands.py`의 `handle_generation()`이 분석할 변경을 선택하고,
+   `handle_commit()`과 `handle_pr()`가 명령별 생성과 출력을 담당합니다.
+   `--apply`를 사용하면 `app/commit_actions.py`가 사용자 확인과 스테이징 검증 후 커밋합니다.
 2. `app/ai_client.py`: `generate_commit()` 또는 `generate_pr()`에서 시작합니다.
    `request_text()`는 설정 로딩 → diff 정리 → API 요청 → 응답 추출 순서로 연결합니다.
 3. `app/prompts.py`: AI에게 전달하는 작성 규칙을 확인합니다.
