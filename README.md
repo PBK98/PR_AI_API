@@ -140,6 +140,7 @@ API 키 원문과 일반적인 `sk-` 패턴은 diff에서 마스킹합니다.
 
 ```text
 app/
+  __init__.py       # app 패키지 표시
   __main__.py       # python -m app 진입점
   runner.py         # 실행 흐름·Git 상태 출력
   cli.py            # 명령어·옵션 정의와 검증
@@ -147,7 +148,7 @@ app/
   commit_actions.py # 사용자 확인·스테이징 검증·실제 커밋
   git_client.py     # Git 명령·diff 수집·임시 인덱스 처리
   ai_client.py      # 환경설정·API 통신·생성 흐름 연결
-  prompts.py        # 커밋/PR 작성 규칙
+  prompts.py        # 커밋·기본 PR·템플릿 PR의 고정 작성 규칙
   diff_processing.py # 키 마스킹·diff 제한·파일별 입력 구성
   response_format.py # JSON·제목·PR·파일별 결과 검증
   pr_template.py    # 템플릿 로딩·채우기·필수 섹션 검증
@@ -193,17 +194,52 @@ Enter, 다른 입력, 확인 질문에서의 Ctrl+C 또는 입력 종료는 취�
 
 ## 코드를 읽는 순서
 
-1. `app/runner.py`: `main()`에서 옵션을 읽고 Git 상태를 수집한 뒤 생성 작업으로 전달합니다.
-   옵션 정의와 검증은 `app/cli.py`에 있습니다.
-   `app/commands.py`의 `handle_generation()`이 분석할 변경을 선택하고,
-   `handle_commit()`과 `handle_pr()`가 명령별 생성과 출력을 담당합니다.
-   `--apply`를 사용하면 `app/commit_actions.py`가 사용자 확인과 스테이징 검증 후 커밋합니다.
-2. `app/ai_client.py`: `generate_commit()` 또는 `generate_pr()`에서 시작합니다.
-   `request_text()`는 설정 로딩 → diff 정리 → API 요청 → 응답 추출 순서로 연결합니다.
-3. `app/prompts.py`: AI에게 전달하는 작성 규칙을 확인합니다.
-4. `app/diff_processing.py`: 마스킹과 안전 모드 입력 제한을 확인합니다.
-5. `app/response_format.py`: AI 응답을 JSON으로 해석하고 제목·필수 항목을 검증합니다.
-6. `app/pr_template.py`: 템플릿 항목 탐색과 값 정리, 본문 조립을 확인합니다.
-7. `app/git_client.py`: Git 명령 실행과 임시 인덱스를 사용한 파일별 커밋을 확인합니다.
+처음에는 `runner.py`의 `main()`에서 전체 흐름을 보고, 호출하는 함수를 따라 읽으면 됩니다.
 
-새 파일은 책임 분리를 위한 것이며 실행 명령, API 요청 횟수, 안전 모드 제한은 동일합니다.
+1. **실행 진입** — `__main__.py`가 `runner.main()`을 호출합니다.
+2. **명령 해석** — `cli.py`의 `build_parser()`와 `validate_args()`가 명령과 옵션을 확인합니다.
+3. **변경 조회** — `runner.py`가 Git 상태와 스테이징 전·후 diff를 읽습니다. 명령을 생략하면 상태만 출력합니다.
+4. **분석 대상 선택** — `commands.py`의 `handle_generation()`이 스테이징한 변경을 우선 선택합니다.
+5. **AI 요청** — `ai_client.py`가 설정을 읽고, `diff_processing.py`에서 입력을 정리한 뒤 요청합니다. 고정 작성 규칙은 `prompts.py`에 있습니다.
+6. **응답 검증과 출력** — `response_format.py`가 응답 형식을 검증하고 `commands.py`가 결과를 출력합니다. 템플릿 PR은 `pr_template.py`가 빈 항목을 채워 Markdown 본문을 만듭니다.
+7. **선택적 커밋** — `commit --apply`일 때만 `commit_actions.py`가 사용자 확인과 스테이징 재검증 후 커밋합니다. 실제 Git 명령과 임시 인덱스 처리는 `git_client.py`가 담당합니다.
+
+### 변수 이름으로 데이터 구분하기
+
+| 변수 | 담고 있는 내용 |
+|---|---|
+| `cli_args` | 터미널에서 입력한 명령과 옵션 |
+| `git_status` | `git status --short` 결과 문자열 |
+| `staged_diff` / `unstaged_diff` | 스테이징한 변경 / 아직 스테이징하지 않은 변경 |
+| `selected_diff` | 이번 생성 작업에서 분석할 변경 내용 |
+| `use_staged_diff` | 파일별 diff를 스테이징 기준으로 읽을지 정하는 참·거짓 값 |
+| `staged_snapshot` | 생성 당시 보관한 전체 스테이징 변경. 실제 커밋 직전에 비교 |
+| `file_diffs` | 파일 경로를 키로, 해당 파일의 diff를 값으로 가진 딕셔너리 |
+| `commit_messages` | 파일 경로와 생성된 커밋 메시지를 연결한 딕셔너리 |
+| `request_content` / `api_response` | API에 보낼 내용 / API가 반환한 응답 객체 |
+| `response_text` / `response_data` | 응답의 텍스트 / JSON을 해석한 Python 데이터 |
+| `editable_lines` | 템플릿에서 채울 줄 번호와 해당 줄의 접두사 |
+| `field_descriptions` / `field_values` | AI에 전달할 원본 항목 / AI가 작성한 항목 값 |
+
+`diff_text`는 diff 문자열, `file_id`는 응답을 원래 파일에 연결하는 번호,
+`line_number`는 템플릿의 0부터 시작하는 줄 번호입니다.
+
+### PR 템플릿 처리 흐름
+
+`.github/pull_request_template.md`는 최종 Markdown 양식입니다.
+`template_instructions()`는 `prompts.py`의 고정 규칙에 빈 항목 목록과 원본 템플릿을 붙입니다.
+AI는 채울 내용을 JSON으로 반환하고, `render_template()`이 다음 순서로 처리합니다.
+
+1. JSON과 PR 제목을 검증합니다.
+2. 응답의 항목이 템플릿의 빈 줄과 정확히 대응하는지 확인합니다.
+3. 지정된 줄을 채우고 필수 섹션을 검증해 Markdown으로 반환합니다.
+
+템플릿이 없으면 기본 Why·What·How to Test 형식으로 생성합니다.
+
+### 함수 안의 import
+
+`commands.py`는 AI 생성 함수를 사용할 때 `ai_client.py`를 불러옵니다.
+이 덕분에 `openai`나 `python-dotenv`가 설치되지 않아도 도움말과 Git 상태 조회는 사용할 수 있습니다.
+AI 생성이 필요한 시점에 패키지가 없으면 설치 안내를 출력합니다.
+
+변수 이름과 설명을 정리했으며 실행 명령, 출력 형식, API 요청 횟수, 안전 모드 제한과 커밋 확인 절차는 유지합니다.
