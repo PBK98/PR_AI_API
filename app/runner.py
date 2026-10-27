@@ -36,19 +36,16 @@ def main() -> int:
                 return 1
             # 실제 적용 직전에 비교할 원본을 보관한다. 바이너리 변경 내용도 포함한다.
             snapshot = read_staged_snapshot()
+
+        if args.command in ("commit", "pr"):
+            try:
+                return handle_generation(args, status, staged, unstaged, snapshot)
+            except ImportError:
+                print("[ERROR] python -m pip install -r requirements.txt 를 먼저 실행하세요.", file=sys.stderr)
+                return 1
     except (OSError, RuntimeError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
-
-    if args.command in ("commit", "pr"):
-        try:
-            return handle_generation(args, status, staged, unstaged, snapshot)
-        except ImportError:
-            print("[ERROR] python -m pip install -r requirements.txt 를 먼저 실행하세요.", file=sys.stderr)
-            return 1
-        except (OSError, RuntimeError) as exc:
-            print(f"[ERROR] {exc}", file=sys.stderr)
-            return 1
 
     show_changes(status, staged, unstaged)
     return 0
