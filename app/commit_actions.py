@@ -35,9 +35,7 @@ def confirm_file_commits(messages: dict[str, str], expected_diff: str) -> int:
     try:
         verify_staged_changes(expected_diff)
         # 커밋마다 HEAD가 바뀌므로 파일별 patch를 미리 기록해 비교한다.
-        patches = {}
-        for path in messages:
-            patches[path] = read_staged_file_patch(path)
+        patches = {path: read_staged_file_patch(path) for path in messages}
         for path, message in messages.items():
             current = read_staged_file_patch(path)
             if current != patches[path]:
