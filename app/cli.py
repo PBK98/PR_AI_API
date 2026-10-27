@@ -6,7 +6,7 @@ import argparse
 def build_parser() -> argparse.ArgumentParser:
     """명령어와 옵션을 역할별로 정의한다."""
     # 여기서는 허용할 명령과 옵션만 등록한다. 실제 해석은 main의 parse_args가 수행한다.
-    # --safe-mode처럼 하이픈이 있는 옵션은 args.safe_mode처럼 밑줄 속성으로 읽는다.
+    # --safe-mode처럼 하이픈이 있는 옵션은 cli_args.safe_mode처럼 밑줄 속성으로 읽는다.
     parser = argparse.ArgumentParser(description="Git 변경 확인 및 AI 커밋/PR 초안 생성")
     parser.add_argument(
         "command",
@@ -35,13 +35,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+def validate_args(parser: argparse.ArgumentParser, cli_args: argparse.Namespace) -> None:
     """옵션의 사용 조건과 값의 범위를 확인한다."""
-    if args.apply and args.command != "commit":
+    if cli_args.apply and cli_args.command != "commit":
         parser.error("--apply는 commit 명령에서만 사용할 수 있습니다.")
-    if args.per_file and args.command != "commit":
+    if cli_args.per_file and cli_args.command != "commit":
         parser.error("--per-file은 commit 명령에서만 사용할 수 있습니다.")
-    if args.temperature is not None and not 0 <= args.temperature <= 2:
+    if cli_args.temperature is not None and not 0 <= cli_args.temperature <= 2:
         parser.error("--temperature는 0~2 사이여야 합니다.")
-    if args.max_tokens < 16:
+    if cli_args.max_tokens < 16:
         parser.error("--max-tokens는 16 이상이어야 합니다.")
