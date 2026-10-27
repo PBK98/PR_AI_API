@@ -29,13 +29,7 @@ def handle_pr(args: argparse.Namespace, diff: str) -> int:
     # AI 기능을 사용할 때만 불러와 단순 Git 상태 확인에는 API 의존성이 필요 없게 한다.
     from .ai_client import generate_pr
 
-    title, body = generate_pr(
-        diff,
-        model=args.model,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-        safe_mode=args.safe_mode,
-    )
+    title, body = generate_pr(diff, **ai_options(args))
     print("\n--- PR Title ---")
     print(title)
     print("\n--- PR Body ---")
@@ -53,13 +47,7 @@ def handle_commit(args: argparse.Namespace, diff: str, staged: bool, snapshot: s
 
     from .ai_client import generate_commit
 
-    message = generate_commit(
-        diff,
-        model=args.model,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-        safe_mode=args.safe_mode,
-    )
+    message = generate_commit(diff, **ai_options(args))
     print("\n--- Commit Message ---")
     print(message)
     print("----------------------")
@@ -73,13 +61,7 @@ def handle_file_commits(args: argparse.Namespace, staged: bool, snapshot: str) -
     from .ai_client import generate_file_commits
 
     files = collect_file_diffs(staged=staged)
-    messages = generate_file_commits(
-        files,
-        model=args.model,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-        safe_mode=args.safe_mode,
-    )
+    messages = generate_file_commits(files, **ai_options(args))
     print("\n--- Commit Messages by File ---")
     for path, message in messages.items():
         print(f"\n파일: {path!r}\n{message}")
@@ -87,3 +69,13 @@ def handle_file_commits(args: argparse.Namespace, staged: bool, snapshot: str) -
     if args.apply:
         return confirm_file_commits(messages, snapshot)
     return 0
+
+
+def ai_options(args: argparse.Namespace) -> dict:
+    """세 생성 함수가 공유하는 AI 설정만 추린다. **로 펼쳐 이름 있는 인자로 전달한다."""
+    return {
+        "model": args.model,
+        "temperature": args.temperature,
+        "max_tokens": args.max_tokens,
+        "safe_mode": args.safe_mode,
+    }
