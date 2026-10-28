@@ -43,7 +43,9 @@ def request_text(diff_text: str, model: str, temperature: float | None, max_toke
     """설정 → 입력 정리 → 요청 → 응답 추출을 연결하는 공통 진입점."""
     # 요청 전에는 설정과 전송 내용을 준비하고, 응답 후에는 사용할 텍스트만 꺼낸다.
     api_config = load_api_config()
-    request_content = prepare_diff(diff_text, api_config.api_key, safe_mode)
+    request_content = prepare_diff(
+        diff_text, api_config.api_key, safe_mode, base_url=api_config.base_url
+    )
     print("[INFO] AI API 요청 중... (요청 1회, 자동 재시도 없음)")
     api_response = send_request(api_config, request_content, model, temperature, max_tokens, instructions)
     return extract_response_text(api_response)
