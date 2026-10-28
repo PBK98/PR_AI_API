@@ -15,12 +15,16 @@ def limit_diff(diff_text: str, max_lines: int, max_chars: int) -> str:
     return "\n".join(selected_lines)[:max_chars]
 
 
-def prepare_diff(diff_text: str, api_key: str, safe_mode: bool) -> str:
-    """diff의 키를 가리고, 안전 모드일 때 분량을 제한한 문자열을 반환한다.
+def prepare_diff(diff_text: str, api_key: str, safe_mode: bool, base_url: str = "") -> str:
+    """diff의 키와 서버 주소를 가리고, 안전 모드일 때 분량을 제한한다.
 
     api_key는 호출자가 비어 있지 않음을 확인한 값이다.
     이 함수는 모든 비밀정보를 탐지하지 않으며 파일 자체는 수정하지 않는다.
     """
+    # 주소 안에 키가 포함되어 있어도 전체 주소를 먼저 가릴 수 있도록 처리한다.
+    # 빈 문자열을 replace에 전달하면 문자 사이마다 표시가 삽입되므로 제외한다.
+    if base_url:
+        diff_text = diff_text.replace(base_url, "[REDACTED]")
     # 사용 중인 키와 흔한 OpenAI 키 패턴은 모드와 관계없이 제거한다.
     diff_text = diff_text.replace(api_key, "[REDACTED]")
     # sk- 뒤의 영문자·숫자·밑줄·하이픈이 한 개 이상 이어지는 패턴을 치환한다.
